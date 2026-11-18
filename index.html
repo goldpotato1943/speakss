@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주제 선택하기</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f4f6fb; color: #1f2937; padding: 20px; line-height: 1.5;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 24px; text-align: center; margin-bottom: 6px; }
+  .sub { text-align: center; color: #6b7280; font-size: 14px; margin-bottom: 20px; }
+
+  .picker {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 16px; margin-bottom: 20px;
+  }
+  .picker label { font-weight: 600; font-size: 14px; margin-right: 8px; }
+  .picker select {
+    font-size: 16px; padding: 8px 12px; border: 1px solid #d1d5db;
+    border-radius: 8px; background: #fff;
+  }
+  .picker .hint { font-size: 13px; color: #6b7280; margin-top: 8px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 14px; cursor: pointer; transition: all .15s;
+  }
+  .card:hover { border-color: #2563eb; transform: translateY(-2px); }
+  .card.full { opacity: .55; cursor: not-allowed; }
+  .card.full:hover { border-color: #e5e7eb; transform: none; }
+  .card.mine { border-color: #2563eb; background: #eff6ff; }
+
+  .card .title { font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+  .card .count { font-size: 13px; font-weight: 600; color: #2563eb; }
+  .card .count.full { color: #ef4444; }
+  .slots { display: flex; gap: 6px; margin-top: 10px; }
+  .slot {
+    flex: 1; text-align: center; font-size: 14px; font-weight: 600;
+    padding: 8px 4px; border-radius: 8px; background: #f3f4f6; color: #9ca3af;
+  }
+  .slot.taken { background: #dbeafe; color: #1e40af; }
+
+  .bar { display: flex; gap: 10px; justify-content: center; margin-top: 24px; }
+  button.reset {
+    font-size: 14px; padding: 10px 18px; border: 1px solid #d1d5db;
+    border-radius: 8px; background: #fff; cursor: pointer; color: #374151;
+  }
+  button.reset:hover { background: #f9fafb; }
+  .done { text-align: center; margin-top: 16px; font-size: 14px; color: #6b7280; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>발표 주제 선택</h1>
+  <p class="sub">본인 번호를 고른 뒤, 원하는 주제를 누르세요. (주제당 2명까지)</p>
+
+  <div class="picker">
+    <label for="num">내 번호</label>
+    <select id="num"></select>
+    <div class="hint" id="myStatus">번호를 선택하세요.</div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="done" id="progress"></div>
+  <div class="bar">
+    <button class="reset" id="resetBtn">전체 초기화</button>
+  </div>
+</div>
+
+<script>
+  const TOPICS = [
+    "고흐",
+    "레오나르도 다빈치",
+    "피라미드",
+    "세계 유명 건축물 (에펠탑, 타지마할, 콜로세움)",
+    "마추픽추",
+    "문어의 지능과 신체",
+    "세계 여러 나라의 식사 예절",
+    "라이트 형제",
+    "착시 현상",
+    "만리장성",
+    "진시황과 병마용"
+  ];
+  const TOTAL_PEOPLE = 22;
+  const PER_TOPIC = 2;
+  const KEY = "topic_picks_v1";
+
+  // picks = { topicIndex: [번호, 번호] }
+  let picks = JSON.parse(localStorage.getItem(KEY) || "{}");
+
+  const numSel = document.getElementById("num");
+  for (let i = 1; i <= TOTAL_PEOPLE; i++) {
+    const o = document.createElement("option");
+    o.value = i; o.textContent = i + "번";
+    numSel.appendChild(o);
+  }
+  numSel.selectedIndex = -1;
+
+  function save() { localStorage.setItem(KEY, JSON.stringify(picks)); }
+
+  function findMyTopic(n) {
+    for (const t in picks) { if (picks[t].includes(n)) return Number(t); }
+    return -1;
+  }
+
+  function render() {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    const myNum = numSel.value ? Number(numSel.value) : null;
+    const myTopic = myNum ? findMyTopic(myNum) : -1;
+
+    TOPICS.forEach((name, i) => {
+      const arr = picks[i] || [];
+      const full = arr.length >= PER_TOPIC;
+      const mine = myTopic === i;
+
+      const card = document.createElement("div");
+      card.className = "card" + (full && !mine ? " full" : "") + (mine ? " mine" : "");
+
+      let slotsHtml = "";
+      for (let s = 0; s < PER_TOPIC; s++) {
+        if (arr[s]) slotsHtml += `<div class="slot taken">${arr[s]}번</div>`;
+        else slotsHtml += `<div class="slot">빈자리</div>`;
+      }
+
+      card.innerHTML = `
+        <div class="title">${i + 1}. ${name}</div>
+        <div class="count ${full ? "full" : ""}">${arr.length} / ${PER_TOPIC}명</div>
+        <div class="slots">${slotsHtml}</div>
+      `;
+      card.onclick = () => choose(i);
+      grid.appendChild(card);
+    });
+
+    updateStatus();
+  }
+
+  function updateStatus() {
+    const myNum = numSel.value ? Number(numSel.value) : null;
+    const st = document.getElementById("myStatus");
+    if (!myNum) { st.textContent = "번호를 선택하세요."; }
+    else {
+      const t = findMyTopic(myNum);
+      if (t === -1) st.textContent = `${myNum}번: 아직 주제를 선택하지 않았어요. 주제를 누르세요.`;
+      else st.textContent = `${myNum}번: "${TOPICS[t]}" 선택됨 (다시 누르면 취소)`;
+    }
+    const chosen = Object.values(picks).reduce((a, b) => a + b.length, 0);
+    document.getElementById("progress").textContent = `선택 완료 ${chosen} / ${TOTAL_PEOPLE}명`;
+  }
+
+  function choose(i) {
+    const myNum = numSel.value ? Number(numSel.value) : null;
+    if (!myNum) { alert("먼저 본인 번호를 선택하세요."); return; }
+
+    const arr = picks[i] || [];
+    // 이미 이 주제를 골랐으면 취소
+    if (arr.includes(myNum)) {
+      picks[i] = arr.filter(n => n !== myNum);
+      save(); render(); return;
+    }
+    // 다른 주제를 이미 골랐으면 안내
+    const prev = findMyTopic(myNum);
+    if (prev !== -1) {
+      if (!confirm(`이미 "${TOPICS[prev]}"를 선택했어요. "${TOPICS[i]}"로 바꿀까요?`)) return;
+      picks[prev] = picks[prev].filter(n => n !== myNum);
+    }
+    if ((picks[i] || []).length >= PER_TOPIC) { alert("이 주제는 이미 2명이 선택했어요."); return; }
+    picks[i] = [...(picks[i] || []), myNum];
+    save(); render();
+  }
+
+  numSel.onchange = render;
+  document.getElementById("resetBtn").onclick = () => {
+    if (confirm("모든 선택을 초기화할까요?")) { picks = {}; save(); render(); }
+  };
+
+  render();
+</script>
+</body>
+</html>
